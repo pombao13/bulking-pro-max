@@ -1,95 +1,90 @@
-// ═══════════════════════════════════════════════════════════════
-// SERVICE WORKER v6 — Auto-update + Web Push
-// ═══════════════════════════════════════════════════════════════
-const CACHE_NAME = "bulking-v6";
-const ASSETS = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png", "/icon-notif.png"];
+// ── BUMPAR ESSE NÚMERO FORÇA LIMPEZA DE CACHE ──
+const CACHE = "bulking-v10";
+const ASSETS = ["/manifest.json", "/icon-192.png", "/icon-512.png", "/icon-notif.png"];
+// index.html é EXCLUÍDO do ASSETS para nunca ser servido do cache
 
-// ── INSTALL: baixa assets, ativa IMEDIATAMENTE ─────────────────
+// ── Install: não cacheia index.html ──
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(CACHE)
       .then(c => c.addAll(ASSETS))
-      .then(() => self.skipWaiting()) // <- ativa sem esperar aba fechar
+      .then(() => self.skipWaiting())
   );
 });
 
-// ── ACTIVATE: limpa caches antigos e assume controle ──────────
+// ── Activate: apaga TODOS os caches antigos imediatamente ──
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
-      .then(() => self.clients.claim()) // <- assume todas as abas abertas
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => {
+        console.log("[SW] Todos os caches limpos");
+        return self.clients.claim();
+      })
   );
 });
 
-// ── FETCH: network-first para HTML, cache-first para assets ───
+// ── Fetch: network-first para HTML, cache-first para assets ──
 self.addEventListener("fetch", e => {
-  if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
 
-  // Nunca faz cache de APIs externas
-  const url = e.request.url;
-  if (url.includes("supabase.co") || url.includes("anthropic.com") || url.includes("api.") || url.includes("fonts.")) return;
-
-  // Para o próprio index.html: sempre tenta rede primeiro (garante update)
-  if (url.endsWith("/") || url.includes("index.html")) {
+  // HTML → SEMPRE busca da rede (nunca do cache)
+  if (e.request.mode === "navigate" || url.pathname.endsWith(".html") || url.pathname === "/") {
     e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          // Atualiza cache com versão nova
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(e.request)) // fallback offline
+      fetch(e.request).catch(() => caches.match("/index.html"))
     );
     return;
   }
 
-  // Assets estáticos: cache-first
+  // Assets estáticos (ícones, manifest) → cache-first
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
+    caches.match(e.request).then(r =>
+      r || fetch(e.request).then(res => {
+        if (res.ok && e.request.method === "GET") {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => cached);
-    })
+      })
+    ).catch(() => new Response("Offline", { status: 503 }))
   );
 });
 
-// ── PUSH: recebe notificação do servidor ──────────────────────
+// ── Push (recebe do servidor) ──
 self.addEventListener("push", e => {
-  let data = { title: "🍽️ Bulking PRO MAX", body: "Hora de comer!" };
-  try { data = e.data.json(); } catch {}
-
+  let data = { title: "🍽️ Bulking PRO", body: "Hora de comer!", icon: "/icon-192.png", badge: "/icon-notif.png", tag: "meal", url: "/" };
+  if (e.data) { try { Object.assign(data, e.data.json()); } catch (_) {} }
   e.waitUntil(
     self.registration.showNotification(data.title, {
-      body:     data.body,
-      icon:     "/icon-192.png",
-      badge:    "/icon-notif.png",
-      vibrate:  [200, 100, 200],
-      tag:      data.tag || "bulking",
-      renotify: true,
-      data:     { url: "/" }
+      body: data.body, icon: data.icon, badge: data.badge,
+      tag: data.tag, renotify: true, vibrate: [200, 100, 200, 100, 200],
+      data: { url: data.url || "/" },
     })
   );
 });
 
-// ── NOTIFICATION CLICK ────────────────────────────────────────
+// ── Notification click ──
 self.addEventListener("notificationclick", e => {
   e.notification.close();
+  const url = e.notification.data?.url || "/";
   e.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
-      for (const c of list) if (c.url.startsWith(self.registration.scope)) return c.focus();
-      return clients.openWindow("/");
+      for (const c of list) {
+        if ((c.url.includes("bulking") || c.url.endsWith("/")) && "focus" in c) return c.focus();
+      }
+      return clients.openWindow(url);
     })
   );
 });
 
-// ── MENSAGEM do app (SKIP_WAITING) ────────────────────────────
+// ── Message ──
 self.addEventListener("message", e => {
   if (e.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (e.data?.type === "SHOW_NOTIFICATION") {
+    const { title, body, tag } = e.data;
+    self.registration.showNotification(title, {
+      body, icon: "/icon-192.png", badge: "/icon-notif.png",
+      tag: tag || "bulking", renotify: true, vibrate: [200, 100, 200],
+    });
+  }
 });

@@ -1,183 +1,224 @@
-// Supabase Edge Function — Envia push notifications agendadas
-// Deploy: supabase functions deploy push-notifications
-// Cron: supabase functions schedule push-notifications "*/15 * * * *"
-
+// ═══════════════════════════════════════════════════════════════
+// Supabase Edge Function: send-notifications
+// Roda via cron a cada minuto — dispara push nas horas das refeições
+// ═══════════════════════════════════════════════════════════════
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VAPID_PUBLIC  = "BKbbrvaRRSGvmJwSQp-aQjsrNrlJid3k9bYXVSAlavsZXRKfrfSPDS6JnsfaNPbHks78J4Ejo2P9m_63PIuMduY";
-const VAPID_PRIVATE = "rd_tEq7gPieU3vQwOtu1ZUihHwtp372dSrsTFTmzh5E";
-const VAPID_SUBJECT = "mailto:admin@bulkingpro.app";
+const VAPID_PUBLIC  = Deno.env.get("VAPID_PUBLIC_KEY")!;
+const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY")!;
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:contato@bulkingpro.app";
 
-Deno.serve(async (req) => {
-  try {
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Pega todas as subscrições ativas
-    const { data: subs } = await sb.from("push_subscriptions").select("*");
-    if (!subs?.length) return new Response("No subscribers", { status: 200 });
-
-    const now = new Date();
-    const hhmm = now.toTimeString().slice(0,5); // "HH:MM"
-
-    // Horários de refeição conhecidos
-    const mealTimes = ["12:30","15:30","18:00","21:00","23:00","03:00","06:30","08:30","11:30","16:30","20:00","22:30"];
-    const isMealTime = mealTimes.includes(hhmm);
-
-    const results = [];
-    for (const sub of subs) {
-      const msgs = [];
-
-      if (isMealTime) {
-        msgs.push({ title: "🍽️ Hora de comer!", body: `${hhmm} — Verifique sua próxima refeição no app.` });
-      }
-
-      // Verifica água (envia se não registrou nas últimas 1h — simplificado)
-      const { count: waterCount } = await sb.from("water_log")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", sub.user_id)
-        .eq("data", now.toISOString().slice(0,10))
-        .gte("created_at", new Date(Date.now() - 3600000).toISOString());
-
-      const hour = now.getHours();
-      if ((waterCount ?? 0) === 0 && hour >= 8 && hour <= 22 && !isMealTime) {
-        msgs.push({ title: "💧 Beba água!", body: "Você não registrou água na última hora. Mantenha-se hidratado!" });
-      }
-
-      for (const msg of msgs) {
-        try {
-          await sendPush(sub.endpoint, sub.p256dh, sub.auth, msg.title, msg.body);
-          results.push({ user: sub.user_id, ok: true });
-        } catch (e) {
-          // Subscrição inválida — remove
-          if (e.message?.includes("410") || e.message?.includes("404")) {
-            await sb.from("push_subscriptions").delete().eq("id", sub.id);
-          }
-          results.push({ user: sub.user_id, ok: false, err: e.message });
-        }
-      }
-    }
-
-    return new Response(JSON.stringify({ sent: results.length, results }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-  }
-});
-
-// ── Web Push com VAPID ──────────────────────────────────────────
-async function sendPush(endpoint: string, p256dh: string, auth: string, title: string, body: string) {
-  const payload = JSON.stringify({ title, body, icon: "/icon-192.png", badge: "/icon-notif.png" });
-
-  // Importa chave privada VAPID
-  const privKeyBytes = base64UrlDecode(VAPID_PRIVATE);
-  const privKey = await crypto.subtle.importKey(
-    "raw", privKeyBytes,
-    { name: "ECDH", namedCurve: "P-256" },
-    false, ["deriveKey", "deriveBits"]
-  );
-
-  // JWT VAPID
-  const vapidJwt = await buildVapidJwt(endpoint, privKey);
-  const pubKeyB64 = VAPID_PUBLIC;
-
-  // Criptografia ECDH + AES-GCM
-  const encrypted = await encryptPayload(payload, p256dh, auth);
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `vapid t=${vapidJwt},k=${pubKeyB64}`,
-      "Content-Encoding": "aes128gcm",
-      "Content-Type": "application/octet-stream",
-      "TTL": "86400",
-    },
-    body: encrypted,
-  });
-
-  if (!res.ok && res.status !== 201) {
-    throw new Error(`Push failed: ${res.status}`);
-  }
+// ── VAPID JWT gerado manualmente (sem lib externa) ─────────────
+function b64url(buf: ArrayBuffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
-
-async function buildVapidJwt(endpoint: string, privKey: CryptoKey): Promise<string> {
-  const url = new URL(endpoint);
-  const aud = `${url.protocol}//${url.host}`;
-  const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
-
-  const header  = base64UrlEncode(JSON.stringify({ typ: "JWT", alg: "ES256" }));
-  const payload = base64UrlEncode(JSON.stringify({ aud, exp, sub: VAPID_SUBJECT }));
-  const msg = `${header}.${payload}`;
-
-  const signKey = await crypto.subtle.importKey(
-    "raw", base64UrlDecode(VAPID_PRIVATE),
-    { name: "ECDSA", namedCurve: "P-256" },
-    false, ["sign"]
-  );
-  const sig = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    signKey,
-    new TextEncoder().encode(msg)
-  );
-  return `${msg}.${base64UrlEncode(new Uint8Array(sig))}`;
-}
-
-async function encryptPayload(payload: string, p256dhB64: string, authB64: string): Promise<Uint8Array> {
-  const p256dh = base64UrlDecode(p256dhB64);
-  const authSecret = base64UrlDecode(authB64);
-  const payloadBytes = new TextEncoder().encode(payload);
-
-  // Gera chave efêmera
-  const ephemeral = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
-  const ephPubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", ephemeral.publicKey));
-
-  const serverKey = await crypto.subtle.importKey("raw", p256dh, { name: "ECDH", namedCurve: "P-256" }, false, []);
-  const sharedBits = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: serverKey }, ephemeral.privateKey, 256));
-
-  // Salt aleatório 16 bytes
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // HKDF
-  const prk = await hkdf(authSecret, sharedBits, concat(new TextEncoder().encode("WebPush: info\x00"), p256dh, ephPubRaw), 32);
-  const cek = await hkdf(salt, prk, new TextEncoder().encode("Content-Encoding: aes128gcm\x00"), 16);
-  const nonce = await hkdf(salt, prk, new TextEncoder().encode("Content-Encoding: nonce\x00"), 12);
-
-  const key = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
-  const padded = concat(payloadBytes, new Uint8Array([2])); // padding delimiter
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, padded));
-
-  // RFC 8188 header: salt(16) + rs(4) + keyid_len(1) + keyid(65)
-  const rs = new Uint8Array(4);
-  new DataView(rs.buffer).setUint32(0, 4096, false);
-  return concat(salt, rs, new Uint8Array([ephPubRaw.length]), ephPubRaw, ciphertext);
-}
-
-async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey("raw", ikm, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const prk = new Uint8Array(await crypto.subtle.sign("HMAC", await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]), ikm));
-  const prkKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const okm = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, concat(info, new Uint8Array([1]))));
-  return okm.slice(0, len);
-}
-
-function concat(...arrays: Uint8Array[]): Uint8Array {
-  const total = arrays.reduce((s, a) => s + a.length, 0);
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const a of arrays) { out.set(a, off); off += a.length; }
-  return out;
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  s = s.replace(/-/g,"+").replace(/_/g,"/");
+function b64urlDecode(s: string) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
   while (s.length % 4) s += "=";
   return Uint8Array.from(atob(s), c => c.charCodeAt(0));
 }
 
-function base64UrlEncode(data: string | Uint8Array): string {
-  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"");
+async function makeVapidJWT(audience: string): Promise<string> {
+  const header  = { alg: "ES256", typ: "JWT" };
+  const payload = {
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+    sub: VAPID_SUBJECT,
+  };
+  const enc = new TextEncoder();
+  const h = b64url(enc.encode(JSON.stringify(header)).buffer);
+  const p = b64url(enc.encode(JSON.stringify(payload)).buffer);
+  const sigInput = enc.encode(`${h}.${p}`);
+
+  // Importa chave ECDSA P-256
+  const rawPriv = b64urlDecode(VAPID_PRIVATE);
+  const privKey = await crypto.subtle.importKey(
+    "jwk",
+    { kty:"EC", crv:"P-256", d: VAPID_PRIVATE,
+      x: VAPID_PUBLIC.slice(0,43), y: VAPID_PUBLIC.slice(43,86) },
+    { name:"ECDSA", namedCurve:"P-256" },
+    false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign({ name:"ECDSA", hash:"SHA-256" }, privKey, sigInput);
+  return `${h}.${p}.${b64url(sig)}`;
 }
+
+// ── Envia Web Push para um endpoint ───────────────────────────
+async function sendPush(sub: {endpoint:string; p256dh:string; auth_key:string},
+                        payload: object) {
+  const url    = new URL(sub.endpoint);
+  const origin = `${url.protocol}//${url.hostname}`;
+  const jwt    = await makeVapidJWT(origin);
+
+  const body = JSON.stringify(payload);
+  const enc  = new TextEncoder();
+
+  const res = await fetch(sub.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type":  "application/json",
+      "Authorization": `vapid t=${jwt},k=${VAPID_PUBLIC}`,
+      "TTL": "86400",
+    },
+    body,
+  });
+  return res.status;
+}
+
+// ── Horários das refeições por fase/tipo (espelha o front) ─────
+const MEAL_TIMES: Record<string, Record<string, string[]>> = {
+  trabalho: {
+    "1":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "2":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "3":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "4":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "5":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "6":["12:30","15:30","18:00","23:00","03:00","06:30"],
+    "7":["12:30","15:30","18:00","23:00","03:00","06:30"],
+  },
+  folga: {
+    "1":["08:30","11:30","16:30","20:00","22:30"],
+    "2":["08:30","11:30","16:30","20:00","22:30"],
+    "3":["08:30","11:30","16:30","20:00","22:30"],
+    "4":["08:30","11:30","16:30","20:00","22:30"],
+    "5":["08:30","11:30","16:30","20:00","22:30"],
+    "6":["08:30","11:30","16:30","20:00","22:30"],
+    "7":["08:30","11:30","16:30","20:00","22:30"],
+  }
+};
+
+// ── Nomes das refeições ────────────────────────────────────────
+const MEAL_NAMES: Record<string, string[]> = {
+  trabalho: ["Arroz + Frango","Shake","Macarrão","Purê + Ovos","Arroz (madrugada)","Macarrão (manhã)"],
+  folga:    ["Shake","Arroz + Frango","Purê + Ovos","Macarrão","Arroz + Banana"],
+};
+
+// ── Handler principal ──────────────────────────────────────────
+Deno.serve(async (req) => {
+  // Suporte a invocação por cron (GET) e teste manual (POST)
+  if (req.method !== "GET" && req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  // Hora atual em Brasília (UTC-3)
+  const now     = new Date();
+  const brOffset = -3 * 60;
+  const brMs    = now.getTime() + (now.getTimezoneOffset() + brOffset) * 60000;
+  const brNow   = new Date(brMs);
+  const hh      = String(brNow.getHours()).padStart(2, "0");
+  const mm      = String(brNow.getMinutes()).padStart(2, "0");
+  const currentTime = `${hh}:${mm}`;
+  const today   = brNow.toISOString().slice(0, 10);
+
+  // Busca todas as subscriptions
+  const { data: subs, error } = await sb
+    .from("push_subscriptions")
+    .select("*");
+
+  if (error || !subs?.length) {
+    return new Response(JSON.stringify({ time: currentTime, subs: 0 }), { status: 200 });
+  }
+
+  let sent = 0;
+  const results: string[] = [];
+
+  for (const sub of subs) {
+    const fase = String(sub.fase || "1");
+    const tipo = sub.tipo || "trabalho";
+    const times = MEAL_TIMES[tipo]?.[fase] || [];
+
+    if (!times.includes(currentTime)) continue;
+
+    // Verifica se a refeição já foi marcada como concluída
+    const mealIdx = times.indexOf(currentTime);
+    const { data: check } = await sb
+      .from("meal_checks")
+      .select("id")
+      .eq("user_id", sub.user_id)
+      .eq("data", today)
+      .eq("fase", fase)
+      .eq("tipo", tipo)
+      .eq("meal_idx", mealIdx)
+      .maybeSingle();
+
+    if (check) continue; // já concluída, não notifica
+
+    const mealName = MEAL_NAMES[tipo]?.[mealIdx] || "Refeição";
+
+    try {
+      const status = await sendPush(sub, {
+        title: "🍽️ Hora de comer!",
+        body:  `${currentTime} — ${mealName}`,
+        icon:  "/icon-192.png",
+        badge: "/icon-notif.png",
+        tag:   `meal-${mealIdx}`,
+        url:   "/",
+      });
+      results.push(`${sub.user_id.slice(0,8)} → ${status}`);
+      if (status < 300) sent++;
+      // Remove subscription inválida
+      if (status === 410 || status === 404) {
+        await sb.from("push_subscriptions").delete().eq("id", sub.id);
+      }
+    } catch (e) {
+      results.push(`${sub.user_id.slice(0,8)} → error: ${e}`);
+    }
+  }
+
+  // ── Notificação de água (a cada hora cheia) ────────────────
+  if (mm === "00") {
+    const { data: waterSubs } = await sb
+      .from("push_subscriptions")
+      .select("*");
+
+    for (const sub of (waterSubs || [])) {
+      const { data: waterToday } = await sb
+        .from("water_log")
+        .select("ml")
+        .eq("user_id", sub.user_id)
+        .eq("data", today);
+
+      const total = (waterToday || []).reduce((s: number, w: {ml:number}) => s + w.ml, 0);
+      if (total >= 3000) continue; // meta atingida
+
+      // Última entrada de água
+      const { data: lastWater } = await sb
+        .from("water_log")
+        .select("created_at")
+        .eq("user_id", sub.user_id)
+        .eq("data", today)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastMs = lastWater ? new Date(lastWater.created_at).getTime() : 0;
+      const diffMin = (Date.now() - lastMs) / 60000;
+
+      if (diffMin < 55) continue; // bebeu há menos de 55min
+
+      const remaining = 3000 - total;
+      try {
+        await sendPush(sub, {
+          title: "💧 Beba água!",
+          body:  `Faltam ${remaining}ml para sua meta. Hidrate-se! 🚰`,
+          icon:  "/icon-192.png",
+          badge: "/icon-notif.png",
+          tag:   "water",
+          url:   "/",
+        });
+        sent++;
+      } catch (_) { /* ignora */ }
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ time: currentTime, processed: subs.length, sent, results }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+});

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bulking PRO — Diagnóstico</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  body{font-family:monospace;background:#0a0a0a;color:#f0f0f0;padding:20px;font-size:13px;}
+  h2{color:#c8ff00;margin-bottom:16px;}
+  .ok{color:#00e676;}
+  .err{color:#ff4444;}
+  .warn{color:#ffaa00;}
+  .info{color:#00e5ff;}
+  .log{background:#111;border:1px solid #333;border-radius:8px;padding:12px;margin:8px 0;line-height:1.8;}
+  button{background:#c8ff00;color:#000;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;margin:6px 4px;font-size:14px;}
+  button.red{background:#ff4444;color:#fff;}
+  input{background:#181818;border:1px solid #333;color:#fff;padding:10px;border-radius:8px;margin:4px;font-size:13px;width:220px;}
+</style>
+</head>
+<body>
+<h2>🔧 Bulking PRO — Diagnóstico</h2>
+<div class="log" id="log">Iniciando diagnóstico...<br></div>
+
+<div style="margin-top:16px">
+  <button onclick="testSupabase()">1. Testar Supabase CDN</button>
+  <button onclick="testAuth()">2. Testar Auth</button>
+  <button onclick="testSession()">3. Ver Sessão Atual</button>
+  <button onclick="testDB()">4. Testar Banco</button>
+  <button class="red" onclick="clearSession()">5. Limpar Sessão</button>
+</div>
+
+<div style="margin-top:16px">
+  <input type="email" id="email" placeholder="seu@email.com">
+  <input type="password" id="pass" placeholder="senha">
+  <button onclick="testLogin()">Testar Login</button>
+</div>
+
+<script>
+const SUPA_URL = 'https://ugifonixdqtvclrfucvf.supabase.co';
+const SUPA_KEY = 'sb_publishable_hDtN3D5IWkdt1Rin3a-9ZQ_vk4fzLab';
+const log = document.getElementById('log');
+
+function addLog(msg, type='info') {
+  const d = document.createElement('div');
+  d.className = type;
+  d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  log.appendChild(d);
+  console.log(msg);
+}
+
+// === 1. TESTE CDN ===
+function testSupabase() {
+  addLog('--- Teste 1: Supabase CDN ---');
+  addLog('window.supabase: ' + typeof window.supabase, window.supabase ? 'ok' : 'err');
+  if (!window.supabase) { addLog('❌ CDN não carregou!', 'err'); return; }
+  addLog('createClient: ' + typeof window.supabase.createClient, window.supabase.createClient ? 'ok' : 'err');
+  try {
+    const client = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    addLog('✅ Client criado: ' + typeof client, 'ok');
+    addLog('client.auth: ' + typeof client.auth, client.auth ? 'ok' : 'err');
+    window._sb = client;
+  } catch(e) {
+    addLog('❌ Erro ao criar client: ' + e.message, 'err');
+  }
+}
+
+// === 2. TESTE AUTH LISTENER ===
+function testAuth() {
+  addLog('--- Teste 2: onAuthStateChange ---');
+  if (!window._sb) { addLog('⚠️ Rode o teste 1 primeiro', 'warn'); return; }
+  addLog('Registrando listener...');
+  window._sb.auth.onAuthStateChange((event, session) => {
+    addLog('🔔 Evento: ' + event + ' | User: ' + (session?.user?.email || 'nenhum'), 
+           session?.user ? 'ok' : 'warn');
+  });
+  addLog('✅ Listener registrado. Aguardando evento...', 'ok');
+}
+
+// === 3. TESTE SESSION ===
+async function testSession() {
+  addLog('--- Teste 3: getSession ---');
+  if (!window._sb) { addLog('⚠️ Rode o teste 1 primeiro', 'warn'); return; }
+  try {
+    addLog('Chamando getSession()...');
+    const { data, error } = await window._sb.auth.getSession();
+    if (error) { addLog('❌ Erro: ' + error.message, 'err'); return; }
+    if (data?.session?.user) {
+      addLog('✅ Sessão ativa: ' + data.session.user.email, 'ok');
+      addLog('User ID: ' + data.session.user.id, 'info');
+      addLog('Token expira: ' + new Date(data.session.expires_at * 1000).toLocaleString(), 'info');
+    } else {
+      addLog('ℹ️ Sem sessão ativa (usuário não logado)', 'warn');
+    }
+  } catch(e) {
+    addLog('❌ Exceção: ' + e.message, 'err');
+  }
+}
+
+// === 4. TESTE BANCO ===
+async function testDB() {
+  addLog('--- Teste 4: Banco de dados ---');
+  if (!window._sb) { addLog('⚠️ Rode o teste 1 primeiro', 'warn'); return; }
+  const tables = ['profiles','water_log','meal_checks','supplements','weight_history','ingredient_prices','custom_diet'];
+  for (const t of tables) {
+    try {
+      const { data, error } = await window._sb.from(t).select('id').limit(1);
+      if (error) addLog('❌ ' + t + ': ' + error.message, 'err');
+      else addLog('✅ ' + t + ': OK', 'ok');
+    } catch(e) {
+      addLog('❌ ' + t + ': ' + e.message, 'err');
+    }
+  }
+}
+
+// === 5. LIMPAR SESSÃO ===
+async function clearSession() {
+  addLog('--- Limpando sessão ---');
+  if (window._sb) await window._sb.auth.signOut().catch(()=>{});
+  localStorage.clear();
+  sessionStorage.clear();
+  addLog('✅ Sessão e cache limpos. Recarregue.', 'ok');
+}
+
+// === LOGIN DE TESTE ===
+async function testLogin() {
+  const email = document.getElementById('email').value;
+  const pass  = document.getElementById('pass').value;
+  if (!email || !pass) { addLog('⚠️ Preencha email e senha', 'warn'); return; }
+  if (!window._sb) { addLog('⚠️ Rode o teste 1 primeiro', 'warn'); return; }
+  addLog('--- Testando login: ' + email + ' ---');
+  try {
+    const { data, error } = await window._sb.auth.signInWithPassword({email, password:pass});
+    if (error) { addLog('❌ Login falhou: ' + error.message, 'err'); }
+    else { addLog('✅ Login OK! User: ' + data.user?.email, 'ok'); }
+  } catch(e) {
+    addLog('❌ Exceção no login: ' + e.message, 'err');
+  }
+}
+
+// Roda teste 1 automaticamente
+window.addEventListener('load', () => {
+  addLog('Página carregada. Executando testes automáticos...');
+  testSupabase();
+  testAuth();
+  testSession();
+});
+</script>
+</body>
+</html>
