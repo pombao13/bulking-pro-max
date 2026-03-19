@@ -84,13 +84,39 @@ export function aibInstall() { installPWA(); }
 
 // ── Service Worker Registration ──────────────────────────
 export function registerSW() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-    // Listen for update
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // Show update banner if SW is already waiting
+    if (reg.waiting) showUpdateBanner();
+
+    // Detect new SW installed
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner();
+        }
+      });
     });
-  }
+
+    // Poll for updates every 60 seconds
+    setInterval(() => reg.update().catch(() => {}), 60000);
+  }).catch(() => {});
+
+  // Reload when new SW takes over
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateBanner() {
+  const el = document.getElementById('updateBanner');
+  if (el) el.classList.add('show');
 }
 
 // ── Update Banner ────────────────────────────────────────

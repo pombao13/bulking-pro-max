@@ -5,6 +5,8 @@ import { dbSaveDiet } from './db.js';
 import { toast, switchTab, today, escapeHtml } from './ui.js';
 import { refeicoes, setRefeicoes, applyImportedDiet, DIET_SCHEMA } from './diet-data.js';
 import { loadMeals } from './meals.js';
+import { renderCustos } from './costs.js';
+import { renderIngredientes } from './ingredients.js';
 
 let _impData = null;
 
@@ -49,6 +51,8 @@ export async function impApply() {
     await dbSaveDiet(_impData);
     toast('🎉 Dieta importada com sucesso!');
     loadMeals();
+    renderCustos();
+    renderIngredientes();
     const preview = document.getElementById('impPreview');
     if (preview) preview.classList.remove('show');
     _impData = null;

@@ -502,12 +502,19 @@
 <div class="toast" id="toast"></div>
 
 <!-- ═══ NOTIFICATION POPUP ═══ -->
-<div id="notifPopup">
-  <div class="np-icon">🔔</div>
-  <div class="np-txt"><b>Ativar notificações?</b><br>Seja avisado na hora de comer e beber água.</div>
-  <div class="np-btns">
-    <button class="np-allow" onclick="allowNotifFromPopup()">Ativar</button>
-    <button class="np-deny" onclick="closeNotifPopup()">Agora não</button>
+<div id="notifPopup" class="notif-popup-overlay">
+  <div class="notif-popup">
+    <div class="notif-popup-icon">🔔</div>
+    <div class="notif-popup-title">ATIVAR NOTIFICAÇÕES?</div>
+    <div class="notif-popup-desc">Seja avisado na hora de <b>comer</b>, <b>beber água</b> e tomar seus <b>suplementos</b>.</div>
+    <div class="notif-popup-feats">
+      <div class="notif-feat"><span class="notif-feat-icon">🍽️</span>Hora de comer</div>
+      <div class="notif-feat"><span class="notif-feat-icon">💧</span>Beber água</div>
+      <div class="notif-feat"><span class="notif-feat-icon">💊</span>Suplementos</div>
+      <div class="notif-feat"><span class="notif-feat-icon">⏰</span>Lembretes</div>
+    </div>
+    <button class="notif-btn-allow" onclick="allowNotifFromPopup()">🔔 ATIVAR NOTIFICAÇÕES</button>
+    <button class="notif-btn-later" onclick="closeNotifPopup()">Agora não</button>
   </div>
 </div>
 

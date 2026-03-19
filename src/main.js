@@ -4,15 +4,16 @@
 import './styles/main.css';
 
 // ── Module imports ───────────────────────────────────────
+import { TABS } from './config.js';
 import { switchTab, applyLayoutClass, closeMod, selC, selIcon, toggleUserMenu, closeUserMenu, fmtMoneyInput, fmtHora } from './ui.js';
-import { initAuth, doLogin, doRegister, doGoogleLogin, doLogout, showAuthTab, finishOnboard } from './auth.js';
+import { initAuth, doLogin, doRegister, doGoogleLogin, doLogout, showAuthTab, finishOnboard, loadUserData } from './auth.js';
 import { loadMeals, openMeal, avancarFase, openAddMealModal, addNewMealIngr, salvarNewMeal } from './meals.js';
 import { addAgua, addAguaCustom, resetAgua, renderAgua } from './water.js';
 import { loadSupl, openSuplModal, salvarSupl } from './supplements.js';
 import { renderIngredientes, savePriceFromModal, openIngrModal, salvarIngr, savePriceInline } from './ingredients.js';
 import { renderCustos } from './costs.js';
 import { salvarPeso, salvarMeta, renderGrafico, renderPesoHist, renderPesoStats } from './progress.js';
-import { gPesos } from './db.js';
+import { gPesos, _user } from './db.js';
 import { impLoadFile, impParseText, impApply, impReset, confirmarResetDieta, downloadDieta, copySchema, toggleSchema, startQuiz, impDragOver, impDragLeave, impDrop } from './import.js';
 import { toggleNotif, checkNotif, checkWaterNotif, checkSuplNotif, allowNotifFromPopup, closeNotifPopup } from './notifications.js';
 import { initPWA, registerSW, installPWA, dismissPWA, showPWA, aibShow, aibDismiss, aibInstall, applyUpdate } from './pwa.js';
@@ -87,6 +88,112 @@ setTabSwitchCallback((id) => {
   if (id === 'prog')   { renderGrafico(); renderPesoHist(); renderPesoStats(gPesos()); }
 });
 
+// ── Swipe Between Tabs ──────────────────────────────────
+function initSwipeTabs() {
+  const tw = document.getElementById('tw');
+  if (!tw) return;
+  let startX = 0, startY = 0, swiping = false;
+  const THRESHOLD = 50;
+
+  tw.addEventListener('touchstart', (e) => {
+    // Don't interfere with inputs, buttons, selects, canvas, modals
+    const tag = e.target.tagName;
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'CANVAS'].includes(tag)) return;
+    if (e.target.closest('.mov, .ov, .price-inp')) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    swiping = true;
+  }, { passive: true });
+
+  tw.addEventListener('touchmove', (e) => {
+    if (!swiping) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // Cancel if vertical scroll dominates
+    if (Math.abs(dy) > Math.abs(dx)) { swiping = false; }
+  }, { passive: true });
+
+  tw.addEventListener('touchend', (e) => {
+    if (!swiping) return;
+    swiping = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) < THRESHOLD) return;
+
+    const currentTab = localStorage.getItem('activeTab') || 'ref';
+    const idx = TABS.indexOf(currentTab);
+    if (idx < 0) return;
+
+    if (dx < -THRESHOLD && idx < TABS.length - 1) {
+      // Swipe left → next tab
+      switchTab(TABS[idx + 1]);
+    } else if (dx > THRESHOLD && idx > 0) {
+      // Swipe right → previous tab
+      switchTab(TABS[idx - 1]);
+    }
+  }, { passive: true });
+}
+
+// ── Pull-to-Refresh ─────────────────────────────────────
+function initPullToRefresh() {
+  const tw = document.getElementById('tw');
+  if (!tw) return;
+
+  let startY = 0, pulling = false, refreshing = false;
+  const PTR_THRESHOLD = 70;
+
+  function getActiveScroll() {
+    const active = tw.querySelector('.tab.active .tc');
+    return active;
+  }
+
+  tw.addEventListener('touchstart', (e) => {
+    if (refreshing) return;
+    const sc = getActiveScroll();
+    if (!sc || sc.scrollTop > 5) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+  }, { passive: true });
+
+  tw.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const sc = getActiveScroll();
+    if (!sc || sc.scrollTop > 5) { pulling = false; return; }
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 0) { pulling = false; return; }
+    if (dy > 10) {
+      // Show visual indicator via toast
+    }
+  }, { passive: true });
+
+  tw.addEventListener('touchend', async (e) => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy < PTR_THRESHOLD) return;
+
+    // Trigger refresh
+    refreshing = true;
+    const { toast } = await import('./ui.js');
+    toast('🔄 Atualizando...');
+
+    try {
+      const { _user } = await import('./db.js');
+      if (_user) {
+        await loadUserData(_user);
+        loadMeals();
+        renderCustos();
+        toast('✅ Dados atualizados!');
+      } else {
+        toast('⚠️ Faça login primeiro');
+      }
+    } catch (err) {
+      toast('❌ Erro ao atualizar');
+      console.error('PTR error:', err);
+    }
+    refreshing = false;
+  }, { passive: true });
+}
+
 // ── App Initialization ──────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // Hide app shell until auth resolves
@@ -143,6 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', impDrop);
     dropZone.addEventListener('click', () => document.getElementById('impFileInput')?.click());
   }
+
+  // Swipe between tabs
+  initSwipeTabs();
+
+  // Pull-to-refresh
+  initPullToRefresh();
 
   // Start auth — triggers onAuthStateChange
   initAuth();

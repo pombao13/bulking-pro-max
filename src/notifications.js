@@ -52,7 +52,7 @@ export async function toggleNotif() {
     updateNotifBtn(); toast('🔕 Notificações desativadas'); return;
   }
   const perm = await Notification.requestPermission();
-  if (perm !== 'granted') { toast('⚠️ Permissão negada.'); return; }
+  if (perm !== 'granted') { toast('⚠️ Permissão negada.'); closeNotifPopup(); return; }
   try {
     if (!VAPID_PUB) { toast('⚠️ VAPID key não configurada.'); localStorage.setItem('notifEnabled', '1'); updateNotifBtn(); return; }
     const reg = await navigator.serviceWorker.ready;
@@ -166,4 +166,4 @@ export function checkAutoNotifPopup() {
 
 export function openNotifPopup()  { document.getElementById('notifPopup')?.classList.add('show'); }
 export function closeNotifPopup() { document.getElementById('notifPopup')?.classList.remove('show'); localStorage.setItem('notifAsked', '1'); }
-export async function allowNotifFromPopup() { closeNotifPopup(); await toggleNotif(); }
+export async function allowNotifFromPopup() { await toggleNotif(); closeNotifPopup(); }

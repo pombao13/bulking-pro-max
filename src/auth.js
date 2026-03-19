@@ -6,6 +6,7 @@ import { CACHE, _user, _profile, setUser, setProfile, gPesos, dbSaveFaseTipo } f
 import { showScreen, setLoadingTxt, toast, switchTab, today } from './ui.js';
 import { refeicoes, applyImportedDiet } from './diet-data.js';
 import { loadMeals } from './meals.js';
+import { renderCustos } from './costs.js';
 import { updateNotifBtn, restorePushSub, checkAutoNotifPopup } from './notifications.js';
 
 // ── Auth Tab Toggle ──────────────────────────────────────
@@ -73,7 +74,7 @@ export async function doLogout() {
 }
 
 // ── Load User Data ───────────────────────────────────────
-async function loadUserData(user) {
+export async function loadUserData(user) {
   if (!sb || !user) return;
   setLoadingTxt('Carregando seus dados...');
   const q = async (fn) => { try { const r = await fn(); return r.data || null; } catch (_) { return null; } };
@@ -143,6 +144,7 @@ async function enterApp(user) {
       showScreen('app');
       switchTab(localStorage.getItem('activeTab') || 'ref');
       loadMeals();
+      renderCustos();
     }
     updateNotifBtn();
     restorePushSub().catch(() => {});

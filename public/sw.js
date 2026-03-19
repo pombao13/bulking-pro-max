@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // BULKING PRO MAX — Service Worker v2.0
 // ═══════════════════════════════════════════════════════════
-const CACHE_NAME = 'bulking-v2';
+const CACHE_NAME = 'bulking-v3';
 
 const PRECACHE = [
   '/',
@@ -50,17 +50,16 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // JS/CSS/Assets: Cache first, fallback to network
+  // JS/CSS/Assets: Network first, fallback to cache (ensures fresh bundles on update)
   if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     e.respondWith(
-      caches.match(e.request).then(cached => {
-        if (cached) return cached;
-        return fetch(e.request).then(r => {
+      fetch(e.request)
+        .then(r => {
           const clone = r.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
           return r;
-        });
-      })
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
