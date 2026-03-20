@@ -7,13 +7,16 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     // Handle notification clicks when the app is in the background or closed
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
@@ -27,7 +30,7 @@ export default function RootLayout() {
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

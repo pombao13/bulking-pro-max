@@ -7,19 +7,21 @@ import { Platform } from 'react-native';
 import { dbSaveExpoPushToken, dbDeleteExpoPushToken } from './database';
 
 // Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export async function registerForPushNotifications(userId: string, fase: string, tipo: string): Promise<string | null> {
-  if (!Device.isDevice) {
-    console.warn('Push notifications only work on physical devices');
+  if (Platform.OS === 'web' || !Device.isDevice) {
+    console.warn('Push notifications only work on physical native devices');
     return null;
   }
 
@@ -75,6 +77,7 @@ export async function registerForPushNotifications(userId: string, fase: string,
 }
 
 export async function unregisterPushNotifications(userId: string): Promise<void> {
+  if (Platform.OS === 'web') return;
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync();
     await dbDeleteExpoPushToken(userId, tokenData.data);
@@ -85,6 +88,7 @@ export async function unregisterPushNotifications(userId: string): Promise<void>
 
 // Schedule local notifications for meals
 export async function scheduleMealNotifications(meals: { nome: string; hora: string; icon: string; macros: { kcal: number } }[]) {
+  if (Platform.OS === 'web') return;
   // Cancel existing meal notifications
   await Notifications.cancelAllScheduledNotificationsAsync();
 
@@ -120,6 +124,7 @@ export async function scheduleMealNotifications(meals: { nome: string; hora: str
 
 // Schedule water reminder every 2 hours (8am-10pm)
 export async function scheduleWaterReminders() {
+  if (Platform.OS === 'web') return;
   for (let hour = 8; hour <= 22; hour += 2) {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -140,6 +145,7 @@ export async function scheduleWaterReminders() {
 
 // Schedule supplement reminder
 export async function scheduleSupplementReminder() {
+  if (Platform.OS === 'web') return;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: '💊 Suplementos pendentes!',
