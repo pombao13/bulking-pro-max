@@ -8,7 +8,7 @@ Chart.register(BarElement, BarController, CategoryScale, LinearScale, ChartToolt
 import { PHASE_PESO } from './config.js';
 import { CACHE, gPrecos, dbSetPreco } from './db.js';
 import { gF, gT, fmtR, fmtKg, escapeHtml, fmtMoneyInput } from './ui.js';
-import { refeicoes, COOK, DB } from './diet-data.js';
+import { refeicoes, COOK, DB, getAutoCookFactor } from './diet-data.js';
 import { savePriceInline } from './ingredients.js';
 import { calcSuplDiario } from './supplements.js';
 
@@ -135,31 +135,48 @@ export function renderCustos() {
     cont.appendChild(row);
   });
 
-  // ── AI imported ingredients (with unit toggle + cook factor) ──
+  // ── AI imported ingredients (with auto cook factor + unit toggle) ──
   Object.keys(uso).filter(k => k.startsWith('ai_')).forEach(key => {
     const meta = uso['__meta_' + key] || { nome: key, unit: 'g' };
     const dayAmt = uso[key]; // amount in diet = COOKED
     const id = key;
     const pr = precos[id] || { val: 0, unit: 'kg', cook_factor: 0 };
     const currentUnit = pr.unit || 'kg';
-    const cookFactor = pr.cook_factor || 0;
 
-    // Calculate raw amount: user enters cooked, we calc raw
-    // cook_factor = how much cooked you get from 1g raw (e.g. 2.5 means 1g raw → 2.5g cooked)
+    // Auto-detect cook factor from ingredient name, manual override takes priority
+    const autoResult = getAutoCookFactor(meta.nome);
+    const manualFactor = pr.cook_factor || 0;
+    const cookFactor = manualFactor > 0 ? manualFactor : (autoResult ? autoResult.factor : 0);
+    const isAutoDetected = manualFactor === 0 && autoResult !== null;
+
+    // Calculate raw amount: diet amount is COOKED, convert back to RAW
     const rawAmt = cookFactor > 0 ? Math.round(dayAmt / cookFactor) : dayAmt;
 
     let custo = 0;
     if (pr.val > 0) {
       if (currentUnit === 'un') custo = dayAmt * pr.val;
-      else custo = (rawAmt / 1000) * pr.val; // price is R$/kg of RAW product
+      else custo = (rawAmt / 1000) * pr.val;
     }
     grandDia += custo;
     if (custo > 0) { barL.push(meta.nome); barV.push(+(custo).toFixed(2)); barC.push('#00e5ff'); }
 
     const unitLabel = currentUnit === 'un' ? 'R$/un' : 'R$/kg';
-    const uid = id.replace(/[^a-zA-Z0-9_]/g, '_'); // safe ID for HTML
+    const uid = id.replace(/[^a-zA-Z0-9_]/g, '_');
     const displayAmt = currentUnit === 'un' ? `${Math.round(rawAmt)}un` : `${rawAmt}g`;
     const displayMonthly = currentUnit === 'un' ? `${rawAmt * 30}un` : fmtKg(rawAmt * 30);
+
+    // Cook factor info badge
+    let cookInfoHtml = '';
+    if (cookFactor > 0) {
+      const factorLabel = cookFactor.toFixed(1).replace('.', ',');
+      const sourceTag = isAutoDetected
+        ? `<span style="font-size:8px;background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.25);border-radius:3px;padding:1px 4px;color:var(--cyan);font-weight:700;margin-left:4px">AUTO</span>`
+        : `<span style="font-size:8px;background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.25);border-radius:3px;padding:1px 4px;color:var(--lime);font-weight:700;margin-left:4px">MANUAL</span>`;
+      cookInfoHtml = `<div class="cost-cell"><div class="cc-lbl">Cozido (dieta)</div><div class="cc-val" style="font-size:10px;color:var(--m2)">${Math.round(dayAmt)}g ${sourceTag}</div></div>`;
+    } else {
+      cookInfoHtml = `<div class="cost-cell"><div class="cc-lbl" style="color:var(--warn)">⚠️ Sem fator</div><div class="cc-val" style="font-size:9px;color:var(--m2)">Edite p/ ajustar</div></div>`;
+    }
+
     const row = document.createElement('div');
     row.className = 'cost-row';
     row.style.borderColor = 'rgba(0,229,255,.2)';
@@ -172,7 +189,7 @@ export function renderCustos() {
         `<div class="cost-cell"><div class="cc-lbl">QTD CRU / DIA</div><div class="cc-val" style="color:var(--cyan)">${displayAmt}</div></div>` +
         `<div class="cost-cell"><div class="cc-lbl">COMPRAR CRU / MÊS</div><div class="cc-val">${displayMonthly}</div></div>` +
         `<div class="cost-cell"><div class="cc-lbl" style="color:var(--lime)">Custo / dia</div><div class="cc-val" style="color:var(--lime)">${custo > 0 ? fmtR(custo) : '—'}</div></div>` +
-        (cookFactor > 0 ? `<div class="cost-cell"><div class="cc-lbl">Cozido (dieta)</div><div class="cc-val" style="font-size:10px;color:var(--m2)">${Math.round(dayAmt)}g</div></div>` : `<div class="cost-cell"><div class="cc-lbl" style="color:var(--warn)">⚠️ Sem fator cru</div><div class="cc-val" style="font-size:9px;color:var(--m2)">Edite p/ calcular</div></div>`) +
+        cookInfoHtml +
       `</div>` +
       // Collapsible edit section
       `<div id="cedit_${uid}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">` +
