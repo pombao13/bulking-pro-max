@@ -19,25 +19,22 @@ body{
   display:flex;flex-direction:column;
 }
 #appShell{flex:1;display:flex;flex-direction:column;overflow:hidden;width:100%;}
-#tw{
-  flex:1;display:flex;overflow-x:auto;overflow-y:hidden;
-  scroll-snap-type:x mandatory;scroll-behavior:smooth;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-}
-#tw::-webkit-scrollbar{display:none;}
+#tw{flex:1;display:flex;overflow:hidden;}
 
 /* ── Tabs ──────────────────────────────────────── */
-.tab{
-  display:flex;flex-direction:column;flex:0 0 100%;width:100%;
-  overflow:hidden;min-height:0;
-  scroll-snap-align:start;scroll-snap-stop:always;
-}
+.tab{display:none;}
+.tab.active{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;}
 .tc{
   flex:1;overflow-y:auto;overflow-x:hidden;
   -webkit-overflow-scrolling:touch;
   padding:12px 12px calc(var(--nav-h) + var(--sab) + 32px);
 }
+
+/* ── Tab Slide Animations ─────────────────────── */
+@keyframes tabSlideInLeft{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes tabSlideInRight{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tab.tab-slide-in-left{animation:tabSlideInLeft .28s cubic-bezier(.25,.46,.45,.94);}
+.tab.tab-slide-in-right{animation:tabSlideInRight .28s cubic-bezier(.25,.46,.45,.94);}
 
 /* ── Cost Edit Button ─────────────────────────── */
 .cost-edit-btn{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;line-height:1;transition:all .2s;flex-shrink:0;display:flex;align-items:center;}
@@ -52,8 +49,7 @@ html.is-desktop #appShell{
   min-height:100vh;box-shadow:0 0 80px rgba(0,0,0,.9);
 }
 html.is-desktop .hdr{position:sticky;top:0;z-index:20;padding:12px 20px;}
-html.is-desktop #tw{display:block;overflow:visible;flex:none;scroll-snap-type:none;scroll-behavior:auto;}
-html.is-desktop .tab{display:none;flex:none;width:auto;overflow:visible;min-height:auto;scroll-snap-align:none;}
+html.is-desktop #tw{display:block;overflow:visible;flex:none;}
 html.is-desktop .tab.active{display:block;overflow:visible;min-height:auto;flex:none;}
 html.is-desktop .tc{flex:none;overflow:visible;height:auto;padding:14px 18px calc(var(--nav-h) + 48px);}
 html.is-desktop .bnav{position:sticky;bottom:0;width:100%;max-width:520px;left:auto;right:auto;transform:none;}
