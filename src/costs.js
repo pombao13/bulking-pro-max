@@ -9,6 +9,7 @@ import { CACHE, gPrecos } from './db.js';
 import { gF, gT, fmtR, fmtKg, escapeHtml, fmtMoneyInput } from './ui.js';
 import { refeicoes, COOK, DB } from './diet-data.js';
 import { savePriceInline } from './ingredients.js';
+import { calcSuplDiario } from './supplements.js';
 
 let cChart = null;
 
@@ -168,7 +169,8 @@ export function renderCustos() {
   });
 
   // ── Supplements costs ───────────────────────────────────
-  const suplList = CACHE.supls.filter(s => s.preco > 0 && ((s.fase === fase || s.fase === 'all') && (s.tipo === tipo || s.tipo === 'all')));
+  const suplAll = CACHE.supls.filter(s => (s.fase === fase || s.fase === 'all') && (s.tipo === tipo || s.tipo === 'all'));
+  const suplList = suplAll.filter(s => calcSuplDiario(s) > 0);
   if (suplList.length) {
     const suplTitle = document.createElement('div');
     suplTitle.className = 'ingr-group-title';
@@ -177,9 +179,13 @@ export function renderCustos() {
     cont.appendChild(suplTitle);
 
     suplList.forEach(s => {
-      const custoDia = s.preco;
+      const custoDia = calcSuplDiario(s);
       grandDia += custoDia;
       barL.push(s.nome); barV.push(+(custoDia).toFixed(2)); barC.push('#c084fc');
+
+      const unidLabel = s.unidade === 'gotas' ? 'gotas' : s.unidade === 'g' ? 'g' : s.unidade === 'ml' ? 'ml' : 'un';
+      const qtdInfo = s.qtd_diaria ? `${escapeHtml(s.qtd_diaria)} ${unidLabel}/dia` : '';
+      const poteInfo = s.preco_total > 0 ? `Pote: ${fmtR(s.preco_total)}` + (s.qtd_total > 0 ? ` · ${s.qtd_total}${s.unidade === 'gotas' ? 'ml' : unidLabel}` : '') : '';
 
       const row = document.createElement('div');
       row.className = 'cost-row';
@@ -187,7 +193,8 @@ export function renderCustos() {
       row.innerHTML =
         `<div class="cost-row-head"><span class="cost-row-name">${escapeHtml(s.nome)} <span style="font-size:9px;color:#c084fc;font-weight:700">SUPLEMENTO</span></span></div>` +
         `<div class="cost-grid">` +
-          (s.qtd_diaria ? `<div class="cost-cell"><div class="cc-lbl">Qtd / dia</div><div class="cc-val">${escapeHtml(s.qtd_diaria)}</div></div>` : '') +
+          (qtdInfo ? `<div class="cost-cell"><div class="cc-lbl">Uso / dia</div><div class="cc-val">${qtdInfo}</div></div>` : '') +
+          (poteInfo ? `<div class="cost-cell"><div class="cc-lbl">Embalagem</div><div class="cc-val" style="font-size:10px">${poteInfo}</div></div>` : '') +
           `<div class="cost-cell"><div class="cc-lbl" style="color:var(--lime)">Custo / dia</div><div class="cc-val" style="color:var(--lime)">${fmtR(custoDia)}</div></div>` +
           `<div class="cost-cell"><div class="cc-lbl" style="color:var(--lime)">Custo / mês</div><div class="cc-val" style="color:var(--lime)">${fmtR(custoDia * 30)}</div></div>` +
         `</div>`;

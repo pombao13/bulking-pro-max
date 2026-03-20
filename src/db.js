@@ -91,12 +91,18 @@ export async function dbSaveFaseTipo(fase, tipo) {
 }
 
 // ── SUPPLEMENTS ──────────────────────────────────────────
-export async function dbAddSupl(nome, fase, tipo, preco = 0, qtd_diaria = '') {
+export async function dbAddSupl(nome, fase, tipo, preco = 0, qtd_diaria = '', unidade = 'un', preco_total = 0, qtd_total = 0) {
   if (!sb || !_user) return;
   const { data } = await sb.from('supplements').insert({
-    user_id: _user.id, nome, fase, tipo, preco, qtd_diaria: qtd_diaria || null
+    user_id: _user.id, nome, fase, tipo, preco, qtd_diaria: qtd_diaria || null,
+    unidade, preco_total, qtd_total
   }).select().single();
-  if (data) CACHE.supls.push({ id: data.id, nome: data.nome, fase: data.fase, tipo: data.tipo, preco: parseFloat(data.preco) || 0, qtd_diaria: data.qtd_diaria || '' });
+  if (data) CACHE.supls.push({
+    id: data.id, nome: data.nome, fase: data.fase, tipo: data.tipo,
+    preco: parseFloat(data.preco) || 0, qtd_diaria: data.qtd_diaria || '',
+    unidade: data.unidade || 'un', preco_total: parseFloat(data.preco_total) || 0,
+    qtd_total: parseFloat(data.qtd_total) || 0
+  });
 }
 
 export async function dbDelSupl(id) {

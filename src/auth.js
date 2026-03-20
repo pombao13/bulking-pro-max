@@ -103,7 +103,7 @@ export async function loadUserData(user) {
   CACHE.waterLog   = (water || []).map(w => ({ id: w.id, ml: w.ml, t: w.hora || '' }));
   CACHE.mealChecks = {};
   (mChecks || []).forEach(ch => { CACHE.mealChecks[`m_${ch.fase}_${ch.tipo}_${ch.meal_idx}_${today()}`] = true; });
-  CACHE.supls      = (supls || []).map(s => ({ id: s.id, nome: s.nome, fase: s.fase, tipo: s.tipo, preco: parseFloat(s.preco) || 0, qtd_diaria: s.qtd_diaria || '' }));
+  CACHE.supls      = (supls || []).map(s => ({ id: s.id, nome: s.nome, fase: s.fase, tipo: s.tipo, preco: parseFloat(s.preco) || 0, qtd_diaria: s.qtd_diaria || '', unidade: s.unidade || 'un', preco_total: parseFloat(s.preco_total) || 0, qtd_total: parseFloat(s.qtd_total) || 0 }));
   CACHE.suplChecks = {};
   (sChecks || []).forEach(ch => { CACHE.suplChecks[`sl_${ch.supl_id}_${today()}`] = true; });
   CACHE.precos     = {};

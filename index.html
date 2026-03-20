@@ -352,10 +352,18 @@
   <div class="mod">
     <div class="mod-title">💊 Novo Suplemento</div>
     <div class="fg"><label class="flbl">NOME</label><input type="text" id="suplNome" placeholder="Ex: Creatina"></div>
+    <div class="fg"><label class="flbl">UNIDADE</label><div class="cr" id="suplUnidGrp">
+      <div class="chip sel" data-val="un" onclick="selC(this,'suplUnidGrp');window.__suplUnidChange()">Un./Cáps</div>
+      <div class="chip" data-val="g" onclick="selC(this,'suplUnidGrp');window.__suplUnidChange()">Gramas</div>
+      <div class="chip" data-val="gotas" onclick="selC(this,'suplUnidGrp');window.__suplUnidChange()">Gotas</div>
+      <div class="chip" data-val="ml" onclick="selC(this,'suplUnidGrp');window.__suplUnidChange()">ML</div>
+    </div></div>
     <div class="ingr-form-grid">
-      <div class="fg"><label class="flbl">VALOR (R$)</label><input type="text" inputmode="decimal" id="suplPreco" placeholder="0,00" oninput="fmtMoneyInput(this)" onfocus="this.select()"></div>
-      <div class="fg"><label class="flbl">QTD DIÁRIA</label><input type="text" id="suplQtd" placeholder="Ex: 5g, 2 cáps"></div>
+      <div class="fg"><label class="flbl" id="suplPrecoLbl">VALOR DO POTE (R$)</label><input type="text" inputmode="decimal" id="suplPreco" placeholder="0,00" oninput="fmtMoneyInput(this)" onfocus="this.select()"></div>
+      <div class="fg"><label class="flbl" id="suplQtdTotalLbl">QTD TOTAL (un)</label><input type="text" inputmode="decimal" id="suplQtdTotal" placeholder="Ex: 60"></div>
     </div>
+    <div class="fg"><label class="flbl" id="suplQtdDiariaLbl">USO DIÁRIO (un)</label><input type="text" inputmode="decimal" id="suplQtd" placeholder="Ex: 2"></div>
+    <div class="supl-cost-preview" id="suplCostPreview"></div>
     <div class="fg"><label class="flbl">FASE</label><div class="cr" id="suplFaseGrp">
       <div class="chip sel" data-val="all" onclick="selC(this,'suplFaseGrp')">Todas</div>
       <div class="chip" data-val="1" onclick="selC(this,'suplFaseGrp')">1</div>
