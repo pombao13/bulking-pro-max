@@ -83,7 +83,14 @@ export function fmtMoneyInput(el) {
   let v = el.value.replace(/[^\d,]/g, '');
   const parts = v.split(',');
   if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
-  el.value = v;
+  // Limit decimal places to 2
+  if (parts.length === 2 && parts[1].length > 2) {
+    v = parts[0] + ',' + parts[1].slice(0, 2);
+  }
+  // Add thousands separator to integer part
+  const [intPart, decPart] = v.split(',');
+  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  el.value = decPart !== undefined ? formatted + ',' + decPart : formatted;
 }
 
 export function fmtHora(el) {

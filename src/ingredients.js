@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// Ingredients Tab — Display, pricing, custom ingredients
+// Receitas Tab — Display ingredients (no pricing here)
 // ═══════════════════════════════════════════════════════════
 import { DB, GROUPS, COOK } from './diet-data.js';
 import { CACHE, gPrecos, dbSetPreco, dbAddCustomIngr, dbDelCustomIngr } from './db.js';
@@ -10,7 +10,6 @@ export function renderIngredientes() {
   const cont = document.getElementById('ingrList');
   if (!cont) return;
   cont.innerHTML = '';
-  const precos = gPrecos();
 
   GROUPS.forEach(grp => {
     const title = document.createElement('div');
@@ -21,9 +20,8 @@ export function renderIngredientes() {
     grp.ids.forEach(id => {
       const d  = DB[id];
       if (!d) return;
-      const pr = precos[id]?.val || 0;
       const row = document.createElement('div');
-      row.className = 'ingr-row' + (pr > 0 ? ' has-price' : '');
+      row.className = 'ingr-row';
 
       const ck = COOK[id];
       const convInfo = ck ? `<span style="font-size:9px;color:var(--cyan);margin-left:5px">${ck.conv}</span>` : '';
@@ -32,9 +30,7 @@ export function renderIngredientes() {
         `<div class="ingr-info">` +
           `<div class="ingr-name">${escapeHtml(d.nome)}${convInfo}</div>` +
           `<div class="ingr-meta">${d.kcal}kcal · C${d.c} P${d.p} G${d.f} / ${d.per}${d.unit}</div>` +
-        `</div>` +
-        (pr > 0 ? `<span class="ingr-price-badge">${fmtR(pr)}</span>` : '') +
-        `<button class="ingr-edit-btn" onclick="window.__editIngr('${id}')">💰</button>`;
+        `</div>`;
       cont.appendChild(row);
     });
   });
@@ -47,55 +43,26 @@ export function renderIngredientes() {
     cont.appendChild(title);
 
     CACHE.customIngrs.forEach(c => {
-      const pid = 'c_' + c.id;
-      const pr  = precos[pid]?.val || 0;
       const row = document.createElement('div');
-      row.className = 'ingr-row' + (pr > 0 ? ' has-price' : '');
+      row.className = 'ingr-row';
       row.innerHTML =
         `<div class="ingr-info">` +
           `<div class="ingr-name">${escapeHtml(c.nome)}<span class="ingr-custom-badge">CUSTOM</span></div>` +
           `<div class="ingr-meta">${c.kcal}kcal · C${c.c} P${c.p} G${c.f} / ${c.per}${c.unit}</div>` +
         `</div>` +
-        (pr > 0 ? `<span class="ingr-price-badge">${fmtR(pr)}</span>` : '') +
-        `<button class="ingr-edit-btn" onclick="window.__editIngr('${pid}')">💰</button>` +
         `<button class="sdel" onclick="window.__delCustIngr('${c.id}')">🗑️</button>`;
       cont.appendChild(row);
     });
   }
 }
 
-window.__editIngr = (id) => {
-  const precos = gPrecos();
-  const pr = precos[id]?.val || 0;
-  const unit = precos[id]?.unit || 'kg';
-
-  const d = DB[id];
-  const name = d ? d.nome : CACHE.customIngrs.find(c => 'c_' + c.id === id)?.nome || id;
-  const unitLabel = unit === 'un' ? 'R$/un' : unit === 'ml' ? 'R$/L' : 'R$/kg';
-
-  const modal = document.getElementById('ingrPriceModal');
-  if (!modal) return;
-
-  modal.querySelector('.mod-title').textContent = '💰 ' + name;
-  modal.querySelector('.mod-body-content').innerHTML =
-    `<div class="fg">` +
-      `<label class="flbl">Preço (${unitLabel})</label>` +
-      `<input type="text" inputmode="decimal" id="ingrPriceVal" class="price-inp" ` +
-        `value="${pr ? pr.toFixed(2).replace('.', ',') : ''}" ` +
-        `placeholder="0,00" oninput="window.__fmtMoney(this)" onfocus="this.select()">` +
-    `</div>`;
-
-  modal.classList.add('active');
-  modal.__ingrId   = id;
-  modal.__ingrUnit = unit;
-};
-
-window.__fmtMoney = fmtMoneyInput;
+// Price editing removed from this tab — prices are managed in Custos tab
 
 export async function savePriceFromModal() {
+  // kept for compatibility but no longer used from this tab
   const modal = document.getElementById('ingrPriceModal');
   if (!modal) return;
-  const val = parseFloat(document.getElementById('ingrPriceVal')?.value.replace(',', '.') || '0');
+  const val = parseFloat(document.getElementById('ingrPriceVal')?.value.replace(/\./g, '').replace(',', '.') || '0');
   const id  = modal.__ingrId;
   const unit = modal.__ingrUnit || 'kg';
   try {
@@ -108,7 +75,7 @@ export async function savePriceFromModal() {
 
 // savePriceInline — used from cost tab inline inputs
 export async function savePriceInline(id, rawVal, unit) {
-  const val = parseFloat(rawVal.replace(',', '.') || '0');
+  const val = parseFloat(rawVal.replace(/\./g, '').replace(',', '.') || '0');
   try {
     await dbSetPreco(id, val, unit);
     renderCustos();
@@ -138,7 +105,6 @@ export async function salvarIngr() {
     closeMod('customIngrModal');
     renderIngredientes();
     toast('🧪 Ingrediente adicionado!');
-    // Clear form
     ['ciNome', 'ciKcal', 'ciC', 'ciP', 'ciF'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';

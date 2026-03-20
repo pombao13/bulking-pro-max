@@ -194,14 +194,20 @@ input::placeholder,textarea::placeholder{color:var(--muted);}
 
 /* ── Supplements ───────────────────────────────── */
 .slist{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
-.scrd{background:var(--s);border:1px solid var(--border);border-radius:9px;padding:11px 13px;display:flex;align-items:center;gap:11px;transition:all .2s;}
+.scrd{background:var(--s);border:1px solid var(--border);border-radius:9px;padding:0;transition:all .2s;overflow:hidden;}
 .scrd.done{border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);}
-.sinfo{flex:1;}
+.srow-main{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;}
+.sinfo{flex:1;min-width:0;}
 .sname{font-weight:700;font-size:12px;}
 .stag{font-size:9px;color:var(--m2);margin-top:2px;}
-.schk{width:25px;height:25px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s;flex-shrink:0;}
-.scrd.done .schk{border-color:var(--ok);background:var(--ok);color:#000;}
-.sdel{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:3px;}
+.schk-box{width:25px;height:25px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s;flex-shrink:0;color:transparent;user-select:none;}
+.schk-box.checked{border-color:var(--ok);background:var(--ok);color:#000;}
+.srow-actions{display:flex;gap:8px;padding:0 13px;max-height:0;overflow:hidden;transition:max-height .25s ease, padding .25s ease;border-top:0 solid transparent;}
+.srow-actions.open{max-height:50px;padding:8px 13px 11px;border-top:1px solid var(--border);}
+.sedit{flex:1;background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.25);color:var(--cyan);border-radius:7px;padding:7px 12px;font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center;}
+.sedit:active{transform:scale(.97);}
+.sdel{flex:1;background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.25);color:var(--danger);border-radius:7px;padding:7px 12px;font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center;}
+.sdel:active{transform:scale(.97);}
 
 /* ── Ingredients Tab ───────────────────────────── */
 .ingr-group-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--m2);margin:14px 0 8px;}
