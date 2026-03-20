@@ -103,7 +103,7 @@ export async function loadUserData(user) {
   CACHE.waterLog   = (water || []).map(w => ({ id: w.id, ml: w.ml, t: w.hora || '' }));
   CACHE.mealChecks = {};
   (mChecks || []).forEach(ch => { CACHE.mealChecks[`m_${ch.fase}_${ch.tipo}_${ch.meal_idx}_${today()}`] = true; });
-  CACHE.supls      = (supls || []).map(s => ({ id: s.id, nome: s.nome, fase: s.fase, tipo: s.tipo }));
+  CACHE.supls      = (supls || []).map(s => ({ id: s.id, nome: s.nome, fase: s.fase, tipo: s.tipo, preco: parseFloat(s.preco) || 0, qtd_diaria: s.qtd_diaria || '' }));
   CACHE.suplChecks = {};
   (sChecks || []).forEach(ch => { CACHE.suplChecks[`sl_${ch.supl_id}_${today()}`] = true; });
   CACHE.precos     = {};
@@ -138,9 +138,16 @@ async function enterApp(user) {
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
     ]);
     const isNew = !localStorage.getItem('onboardDone_' + user.id);
-    if (isNew) {
+    // Skip onboard if user already has meals or imported diet
+    const hasDiet = CACHE.supls.length > 0 || Object.keys(CACHE.mealChecks).length > 0 || 
+      Object.keys(refeicoes).some(f => ['trabalho','folga'].some(t => {
+        const meals = refeicoes[f]?.[t] || [];
+        return meals.some(m => m.ingrs?.some(i => i.id === 'custom'));
+      }));
+    if (isNew && !hasDiet) {
       showScreen('onboard');
     } else {
+      if (isNew) localStorage.setItem('onboardDone_' + user.id, '1');
       showScreen('app');
       switchTab(localStorage.getItem('activeTab') || 'ref');
       loadMeals();

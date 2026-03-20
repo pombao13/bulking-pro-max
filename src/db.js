@@ -91,12 +91,12 @@ export async function dbSaveFaseTipo(fase, tipo) {
 }
 
 // ── SUPPLEMENTS ──────────────────────────────────────────
-export async function dbAddSupl(nome, fase, tipo) {
+export async function dbAddSupl(nome, fase, tipo, preco = 0, qtd_diaria = '') {
   if (!sb || !_user) return;
   const { data } = await sb.from('supplements').insert({
-    user_id: _user.id, nome, fase, tipo
+    user_id: _user.id, nome, fase, tipo, preco, qtd_diaria: qtd_diaria || null
   }).select().single();
-  if (data) CACHE.supls.push({ id: data.id, nome: data.nome, fase: data.fase, tipo: data.tipo });
+  if (data) CACHE.supls.push({ id: data.id, nome: data.nome, fase: data.fase, tipo: data.tipo, preco: parseFloat(data.preco) || 0, qtd_diaria: data.qtd_diaria || '' });
 }
 
 export async function dbDelSupl(id) {

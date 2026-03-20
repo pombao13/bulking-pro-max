@@ -352,6 +352,10 @@
   <div class="mod">
     <div class="mod-title">💊 Novo Suplemento</div>
     <div class="fg"><label class="flbl">NOME</label><input type="text" id="suplNome" placeholder="Ex: Creatina"></div>
+    <div class="ingr-form-grid">
+      <div class="fg"><label class="flbl">VALOR (R$)</label><input type="text" inputmode="decimal" id="suplPreco" placeholder="0,00" oninput="fmtMoneyInput(this)" onfocus="this.select()"></div>
+      <div class="fg"><label class="flbl">QTD DIÁRIA</label><input type="text" id="suplQtd" placeholder="Ex: 5g, 2 cáps"></div>
+    </div>
     <div class="fg"><label class="flbl">FASE</label><div class="cr" id="suplFaseGrp">
       <div class="chip sel" data-val="all" onclick="selC(this,'suplFaseGrp')">Todas</div>
       <div class="chip" data-val="1" onclick="selC(this,'suplFaseGrp')">1</div>

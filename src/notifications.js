@@ -157,7 +157,10 @@ export async function updatePushSubFaseTipo() {
 export function checkAutoNotifPopup() {
   if (typeof Notification === 'undefined') return;
   if (Notification.permission === 'granted') return;
-  if (localStorage.getItem('notifAsked')) return;
+  // Re-show popup after 3 days if previously dismissed
+  const lastAsked = parseInt(localStorage.getItem('notifAskedAt') || '0');
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+  if (lastAsked && (Date.now() - lastAsked < THREE_DAYS)) return;
   setTimeout(() => {
     const el = document.getElementById('notifPopup');
     if (el) el.classList.add('show');
@@ -165,5 +168,5 @@ export function checkAutoNotifPopup() {
 }
 
 export function openNotifPopup()  { document.getElementById('notifPopup')?.classList.add('show'); }
-export function closeNotifPopup() { document.getElementById('notifPopup')?.classList.remove('show'); localStorage.setItem('notifAsked', '1'); }
+export function closeNotifPopup() { document.getElementById('notifPopup')?.classList.remove('show'); localStorage.setItem('notifAskedAt', String(Date.now())); }
 export async function allowNotifFromPopup() { await toggleNotif(); closeNotifPopup(); }
