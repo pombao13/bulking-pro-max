@@ -5,7 +5,7 @@
 export const SUPA_URL = 'https://ugifonixdqtvclrfucvf.supabase.co';
 export const SUPA_KEY = 'sb_publishable_hDtN3D5IWkdt1Rin3a-9ZQ_vk4fzLab';
 
-export const VAPID_PUB = '';  // Set your VAPID public key here
+export const VAPID_PUB = 'BKbbrvaRRSGvmJwSQp-aQjsrNrlJid3k9bYXVSAlavsZXRKfrfSPDS6JnsfaNPbHks78J4Ejo2P9m_63PIuMduY';
 
 export const WATER_GOAL = 3000;
 export const CIRC = 376.99;
