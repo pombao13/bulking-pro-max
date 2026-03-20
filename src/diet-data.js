@@ -112,12 +112,16 @@ export function applyImportedDiet(data) {
       if (!Array.isArray(meals)) return;
       refeicoes[fk] = refeicoes[fk] || {};
       refeicoes[fk][tipo] = meals.map(m => {
-        const ingrs = (m.ingredientes || []).map(i => ({
-          id: 'custom', nome: i.nome, qtd: i.qtd || '',
-          amount: parseFloat(i.qtd) || 0,
+        // Support both formats: 'ingredientes' (from JSON import) 
+        // and 'ingrs' (from saved in-memory state via dbSaveDietFull)
+        const rawIngrs = m.ingredientes || m.ingrs || [];
+        const ingrs = rawIngrs.map(i => ({
+          id: i.id || 'custom', nome: i.nome, qtd: i.qtd || '',
+          amount: parseFloat(i.amount) || parseFloat(i.qtd) || 0,
           kcal: i.kcal || 0, c: i.c || 0, p: i.p || 0, f: i.f || 0
         }));
-        const mac = ingrs.reduce((a, b) => ({ kcal: a.kcal + b.kcal, c: a.c + b.c, p: a.p + b.p, f: a.f + b.f }), { kcal: 0, c: 0, p: 0, f: 0 });
+        // Recalculate macros or use saved ones
+        const mac = m.macros || ingrs.reduce((a, b) => ({ kcal: a.kcal + b.kcal, c: a.c + b.c, p: a.p + b.p, f: a.f + b.f }), { kcal: 0, c: 0, p: 0, f: 0 });
         mac.c = Math.round(mac.c); mac.p = Math.round(mac.p); mac.f = Math.round(mac.f);
         return { nome: m.nome || 'Refeição', hora: m.hora || '00:00', icon: m.icon || '🍽️', ingrs, macros: mac };
       });

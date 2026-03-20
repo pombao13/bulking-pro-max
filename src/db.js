@@ -128,11 +128,12 @@ export async function dbToggleSuplCheck(suplId, wantChecked) {
 }
 
 // ── INGREDIENT PRICES ────────────────────────────────────
-export async function dbSetPreco(ingredientId, valor, unit) {
+export async function dbSetPreco(ingredientId, valor, unit, cookFactor) {
   if (!sb || !_user) return;
-  CACHE.precos[ingredientId] = { val: valor, unit: unit || 'kg' };
+  CACHE.precos[ingredientId] = { val: valor, unit: unit || 'kg', cook_factor: cookFactor || 0 };
   await sb.from('ingredient_prices').upsert({
-    user_id: _user.id, ingredient_id: ingredientId, valor, unit: unit || 'kg'
+    user_id: _user.id, ingredient_id: ingredientId, valor, unit: unit || 'kg',
+    cook_factor: cookFactor || 0
   }, { onConflict: 'user_id,ingredient_id' });
 }
 

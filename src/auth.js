@@ -107,7 +107,7 @@ export async function loadUserData(user) {
   CACHE.suplChecks = {};
   (sChecks || []).forEach(ch => { CACHE.suplChecks[`sl_${ch.supl_id}_${today()}`] = true; });
   CACHE.precos     = {};
-  (precos || []).forEach(p2 => { CACHE.precos[p2.ingredient_id] = { val: parseFloat(p2.valor) || 0, unit: p2.unit || 'kg' }; });
+  (precos || []).forEach(p2 => { CACHE.precos[p2.ingredient_id] = { val: parseFloat(p2.valor) || 0, unit: p2.unit || 'kg', cook_factor: parseFloat(p2.cook_factor) || 0 }; });
   CACHE.customIngrs = (cIngrs || []).map(ci => ({
     id: ci.id, nome: ci.nome, kcal: ci.kcal, c: ci.c, p: ci.p, f: ci.f,
     per: ci.per || 100, unit: ci.unit || 'g', amount: ci.amount || 100, precoUnit: ci.preco_unit || 'kg'

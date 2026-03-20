@@ -42,12 +42,35 @@ export function toast(msg) {
 let _onTabSwitch = null;
 export function setTabSwitchCallback(fn) { _onTabSwitch = fn; }
 
-export function switchTab(id) {
+export function switchTab(id, direction) {
+  const prevTab = localStorage.getItem('activeTab') || 'ref';
+  // Determine animation direction automatically if not provided
+  if (!direction && prevTab !== id) {
+    const prevIdx = TABS.indexOf(prevTab);
+    const nextIdx = TABS.indexOf(id);
+    direction = nextIdx > prevIdx ? 'left' : 'right';
+  }
+
   TABS.forEach(t => {
     const tab = document.getElementById('tab-' + t);
     const nav = document.getElementById('nav-' + t);
-    if (tab) tab.classList.toggle('active', t === id);
     if (nav) nav.classList.toggle('active', t === id);
+    if (tab) {
+      // Remove any previous animation classes
+      tab.classList.remove('active', 'tab-slide-in-left', 'tab-slide-in-right');
+      if (t === id) {
+        tab.classList.add('active');
+        // Apply directional animation
+        if (direction && prevTab !== id) {
+          const animClass = direction === 'left' ? 'tab-slide-in-left' : 'tab-slide-in-right';
+          tab.classList.add(animClass);
+          // Remove animation class after it completes
+          tab.addEventListener('animationend', () => {
+            tab.classList.remove('tab-slide-in-left', 'tab-slide-in-right');
+          }, { once: true });
+        }
+      }
+    }
   });
   localStorage.setItem('activeTab', id);
   if (_onTabSwitch) _onTabSwitch(id);
@@ -80,17 +103,19 @@ export function fmtR(v)   { return 'R$\u00a0' + (+v).toFixed(2).replace('.', ','
 export function fmtKg(g)  { return g < 1000 ? Math.round(g) + 'g' : (g / 1000).toFixed(2) + 'kg'; }
 
 export function fmtMoneyInput(el) {
-  let v = el.value.replace(/[^\d,]/g, '');
-  const parts = v.split(',');
-  if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
-  // Limit decimal places to 2
-  if (parts.length === 2 && parts[1].length > 2) {
-    v = parts[0] + ',' + parts[1].slice(0, 2);
-  }
-  // Add thousands separator to integer part
-  const [intPart, decPart] = v.split(',');
+  // Brazilian money mask: auto-insert comma at 2 decimal places
+  // e.g. typing "1837" → "18,37", "5" → "0,05", "50" → "0,50"
+  let digits = el.value.replace(/\D/g, '');
+  // Remove leading zeros (but keep at least 1)
+  digits = digits.replace(/^0+/, '') || '0';
+  // Pad with zeros if less than 3 digits
+  while (digits.length < 3) digits = '0' + digits;
+  // Split into integer and decimal parts
+  const intPart = digits.slice(0, -2);
+  const decPart = digits.slice(-2);
+  // Add thousands separator
   const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  el.value = decPart !== undefined ? formatted + ',' + decPart : formatted;
+  el.value = formatted + ',' + decPart;
 }
 
 export function fmtHora(el) {

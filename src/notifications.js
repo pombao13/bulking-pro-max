@@ -156,14 +156,31 @@ export async function updatePushSubFaseTipo() {
 // ── Auto notification popup ──────────────────────────────
 export function checkAutoNotifPopup() {
   if (typeof Notification === 'undefined') return;
-  if (Notification.permission === 'granted') return;
+
+  const perm = Notification.permission;
+  const enabled = localStorage.getItem('notifEnabled');
+
+  // Case 1: Permission granted AND notifications enabled → nothing to do
+  if (perm === 'granted' && enabled !== '0') return;
+  // Case 2: Permission denied → can't do anything
+  if (perm === 'denied') return;
+
   // Re-show popup after 3 days if previously dismissed
   const lastAsked = parseInt(localStorage.getItem('notifAskedAt') || '0');
   const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
   if (lastAsked && (Date.now() - lastAsked < THREE_DAYS)) return;
+
   setTimeout(() => {
     const el = document.getElementById('notifPopup');
-    if (el) el.classList.add('show');
+    if (!el) return;
+    // If notifs disabled in-app but permission granted, update text
+    if (perm === 'granted' && enabled === '0') {
+      const title = el.querySelector('.notif-popup-title');
+      const desc = el.querySelector('.notif-popup-desc');
+      if (title) title.textContent = 'NOTIFICAÇÕES DESATIVADAS';
+      if (desc) desc.innerHTML = 'Suas notificações estão <b>desligadas</b>. Ative para não perder suas <b>refeições</b>, <b>água</b> e <b>suplementos</b>.';
+    }
+    el.classList.add('show');
   }, 3000);
 }
 

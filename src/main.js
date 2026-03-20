@@ -125,10 +125,10 @@ function initSwipeTabs() {
 
     if (dx < -THRESHOLD && idx < TABS.length - 1) {
       // Swipe left → next tab
-      switchTab(TABS[idx + 1]);
+      switchTab(TABS[idx + 1], 'left');
     } else if (dx > THRESHOLD && idx > 0) {
       // Swipe right → previous tab
-      switchTab(TABS[idx - 1]);
+      switchTab(TABS[idx - 1], 'right');
     }
   }, { passive: true });
 }

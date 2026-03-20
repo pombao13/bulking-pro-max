@@ -30,6 +30,16 @@ body{
   padding:12px 12px calc(var(--nav-h) + var(--sab) + 32px);
 }
 
+/* ── Tab Slide Animations ─────────────────────── */
+@keyframes tabSlideInLeft{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes tabSlideInRight{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tab.tab-slide-in-left{animation:tabSlideInLeft .28s cubic-bezier(.25,.46,.45,.94);}
+.tab.tab-slide-in-right{animation:tabSlideInRight .28s cubic-bezier(.25,.46,.45,.94);}
+
+/* ── Cost Edit Button ─────────────────────────── */
+.cost-edit-btn{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;line-height:1;transition:all .2s;flex-shrink:0;display:flex;align-items:center;}
+.cost-edit-btn:hover,.cost-edit-btn:active{border-color:var(--lime);background:rgba(200,255,0,.08);}
+
 /* ── Desktop Layout ────────────────────────────── */
 html.is-desktop,
 html.is-desktop body{height:auto !important;overflow:auto !important;}
@@ -572,16 +582,4 @@ input::placeholder,textarea::placeholder{color:var(--muted);}
 .quiz-gen-step.done{color:var(--ok);}
 .quiz-gen-step.active{color:var(--lime);}
 
-/* ── Notification Permission Popup ─────────────── */
-#notifPopup{position:fixed;bottom:calc(var(--nav-h) + var(--sab) + 16px);left:12px;right:12px;
-  background:var(--s);border:1px solid var(--border2);border-left:3px solid var(--lime);
-  border-radius:11px;padding:14px 16px;z-index:500;
-  box-shadow:0 4px 20px rgba(0,0,0,.5);
-  transform:translateY(120%);transition:transform .3s ease;display:flex;align-items:center;gap:12px;}
-#notifPopup.show{transform:translateY(0);}
-.np-icon{font-size:22px;flex-shrink:0;}
-.np-txt{flex:1;font-size:12px;line-height:1.5;color:#ccc;}
-.np-txt b{color:var(--lime);}
-.np-btns{display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
-.np-allow{background:var(--lime);color:#000;border:none;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;}
-.np-deny{background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;text-align:center;padding:2px;}
+/* Old small notification bar — REMOVED, using full-screen overlay at line 479 */
