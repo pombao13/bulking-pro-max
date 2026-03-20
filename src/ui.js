@@ -40,37 +40,50 @@ export function toast(msg) {
 
 // ── Tabs ─────────────────────────────────────────────────
 let _onTabSwitch = null;
+let _scrollingProgrammatic = false;
 export function setTabSwitchCallback(fn) { _onTabSwitch = fn; }
 
-export function switchTab(id, direction) {
+export function switchTab(id) {
   const prevTab = localStorage.getItem('activeTab') || 'ref';
-  // Determine animation direction automatically if not provided
-  if (!direction && prevTab !== id) {
-    const prevIdx = TABS.indexOf(prevTab);
-    const nextIdx = TABS.indexOf(id);
-    direction = nextIdx > prevIdx ? 'left' : 'right';
-  }
+  if (prevTab === id) return;
 
+  const idx = TABS.indexOf(id);
+  if (idx < 0) return;
+
+  // Update nav highlights
   TABS.forEach(t => {
-    const tab = document.getElementById('tab-' + t);
     const nav = document.getElementById('nav-' + t);
     if (nav) nav.classList.toggle('active', t === id);
-    if (tab) {
-      // Remove any previous animation classes
-      tab.classList.remove('active', 'tab-slide-in-left', 'tab-slide-in-right');
-      if (t === id) {
-        tab.classList.add('active');
-        // Apply directional animation
-        if (direction && prevTab !== id) {
-          const animClass = direction === 'left' ? 'tab-slide-in-left' : 'tab-slide-in-right';
-          tab.classList.add(animClass);
-          // Remove animation class after it completes
-          tab.addEventListener('animationend', () => {
-            tab.classList.remove('tab-slide-in-left', 'tab-slide-in-right');
-          }, { once: true });
-        }
-      }
-    }
+  });
+
+  // Scroll the tab wrapper to the target tab
+  const tw = document.getElementById('tw');
+  if (tw) {
+    _scrollingProgrammatic = true;
+    tw.scrollTo({ left: idx * tw.offsetWidth, behavior: 'smooth' });
+    // Reset flag after animation completes
+    setTimeout(() => { _scrollingProgrammatic = false; }, 400);
+  }
+
+  localStorage.setItem('activeTab', id);
+  if (_onTabSwitch) _onTabSwitch(id);
+}
+
+// Called by scroll listener in main.js
+export function handleTabScroll() {
+  if (_scrollingProgrammatic) return;
+  const tw = document.getElementById('tw');
+  if (!tw || !tw.offsetWidth) return;
+  const idx = Math.round(tw.scrollLeft / tw.offsetWidth);
+  if (idx < 0 || idx >= TABS.length) return;
+  const id = TABS[idx];
+  const prev = localStorage.getItem('activeTab') || 'ref';
+  if (id === prev) return;
+
+  // Update nav highlights
+  TABS.forEach(t => {
+    const nav = document.getElementById('nav-' + t);
+    if (nav) nav.classList.toggle('active', t === id);
   });
   localStorage.setItem('activeTab', id);
   if (_onTabSwitch) _onTabSwitch(id);
